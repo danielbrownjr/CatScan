@@ -44,7 +44,7 @@ esp_err_t ads1115_read_channel(ads1115_t *adc, unsigned channel, unsigned gain, 
         if (status & 0x8000u) break;
         vTaskDelay(pdMS_TO_TICKS(1));
     } while (esp_timer_get_time()<deadline);
-    if (!(status & 0x8000u)) return ESP_ERR_TIMEOUT;
+    if (!(status & 0x8000u)) return ADS1115_ERR_CONVERSION_TIMEOUT;
     err=ads1115_write_register(adc,1,cfg);
     if (err!=ESP_OK) return err;
     deadline=esp_timer_get_time()+20000;
@@ -62,5 +62,5 @@ esp_err_t ads1115_read_channel(ads1115_t *adc, unsigned channel, unsigned gain, 
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     } while (esp_timer_get_time()<deadline);
-    return ESP_ERR_TIMEOUT;
+    return ADS1115_ERR_CONVERSION_TIMEOUT;
 }

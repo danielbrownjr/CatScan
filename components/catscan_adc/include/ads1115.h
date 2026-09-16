@@ -1,6 +1,7 @@
 #pragma once
 #include "driver/i2c_master.h"
 #include "adc_math.h"
+#define ADS1115_ERR_CONVERSION_TIMEOUT ((esp_err_t)0x7101)
 typedef struct { i2c_master_bus_handle_t bus; i2c_master_dev_handle_t device; } ads1115_t;
 esp_err_t ads1115_init(ads1115_t *adc);
 esp_err_t ads1115_probe(ads1115_t *adc);

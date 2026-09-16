@@ -22,13 +22,18 @@ static esp_err_t get_config(httpd_req_t *req) {
     catscan_state_t s; uint64_t now; take_snapshot(&s,&now);
     return send_json(req,catscan_config_json(&s.config));
 }
+/* Close rejected requests with unread bodies instead of reusing their socket. */
+static esp_err_t reject_unread(httpd_req_t *req, const char *message) {
+    httpd_resp_send_err(req,HTTPD_400_BAD_REQUEST,message);
+    return ESP_FAIL;
+}
 static esp_err_t put_config(httpd_req_t *req) {
     if (!req->content_len || req->content_len>256)
-        return httpd_resp_send_err(req,HTTPD_400_BAD_REQUEST,"body must be 1..256 bytes");
+        return reject_unread(req,"body must be 1..256 bytes");
     char type[64];
     if (httpd_req_get_hdr_value_str(req,"Content-Type",type,sizeof(type))!=ESP_OK ||
         (strcmp(type,"application/json")!=0 && strcmp(type,"application/json; charset=utf-8")!=0))
-        return httpd_resp_send_err(req,HTTPD_400_BAD_REQUEST,"Content-Type must be application/json");
+        return reject_unread(req,"Content-Type must be application/json");
     char body[257]; size_t used=0;
     while (used<req->content_len) {
         int n=httpd_req_recv(req,body+used,req->content_len-used);

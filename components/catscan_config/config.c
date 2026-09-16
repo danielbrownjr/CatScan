@@ -9,8 +9,56 @@ bool catscan_config_valid(const catscan_config_t *c) {
         if (c->sample_interval_ms == intervals[i]) return true;
     return false;
 }
+/* cJSON intentionally accepts some non-JSON number spellings (for example 01).
+   Check token syntax before parsing so the HTTP boundary accepts actual JSON. */
+static bool json_tokens_valid(const char *text, size_t len) {
+    size_t i=0;
+    while (i<len) {
+        unsigned char ch=(unsigned char)text[i];
+        if (ch=='"') {
+            ++i;
+            bool closed=false;
+            while (i<len) {
+                ch=(unsigned char)text[i++];
+                if (ch=='"') { closed=true; break; }
+                if (ch<32) return false;
+                if (ch=='\\') {
+                    if (i==len) return false;
+                    /* Reject embedded NUL in decoded keys, not just raw body. */
+                    if (len-i>=5 && memcmp(text+i,"u0000",5)==0) return false;
+                    ++i;
+                }
+            }
+            if (!closed) return false;
+        } else if (ch=='-' || (ch>='0' && ch<='9')) {
+            if (ch=='-' && ++i==len) return false;
+            if (text[i]=='0') ++i;
+            else {
+                if (text[i]<'1' || text[i]>'9') return false;
+                do { ++i; } while (i<len && text[i]>='0' && text[i]<='9');
+            }
+            if (i<len && text[i]=='.') {
+                ++i; size_t first=i;
+                while (i<len && text[i]>='0' && text[i]<='9') ++i;
+                if (i==first) return false;
+            }
+            if (i<len && (text[i]=='e' || text[i]=='E')) {
+                ++i;
+                if (i<len && (text[i]=='+' || text[i]=='-')) ++i;
+                size_t first=i;
+                while (i<len && text[i]>='0' && text[i]<='9') ++i;
+                if (i==first) return false;
+            }
+            if (i<len && !strchr(" ,}]:\t\r\n",text[i])) return false;
+        } else {
+            if (ch<32 && ch!='\t' && ch!='\r' && ch!='\n') return false;
+            ++i;
+        }
+    }
+    return true;
+}
 bool catscan_config_parse(const char *text, size_t length, catscan_config_t *out) {
-    if (!text || !out || length == 0 || length > 256 || memchr(text, 0, length)) return false;
+    if (!text || !out || length == 0 || length > 256 || memchr(text, 0, length) || !json_tokens_valid(text,length)) return false;
     const char *end = NULL;
     cJSON *root = cJSON_ParseWithLengthOpts(text, length, &end, false);
     if (!root) return false;

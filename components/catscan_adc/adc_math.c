@@ -1,5 +1,6 @@
 #include "adc_math.h"
 #include <math.h>
+_Static_assert(CATSCAN_DATA_RATE == 128, "Update register encoding and scan budget before changing data rate");
 static const double ranges[] = {6.144, 4.096, 2.048, 1.024, 0.512, 0.256};
 bool catscan_gain_valid(unsigned gain) { return gain < 6; }
 double catscan_full_scale(unsigned gain) { return catscan_gain_valid(gain) ? ranges[gain] : NAN; }

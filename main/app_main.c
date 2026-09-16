@@ -14,6 +14,7 @@
 #include "nvs_flash.h"
 #include <stdio.h>
 #include <string.h>
+_Static_assert(configTICK_RATE_HZ == 1000, "CatScan timing requires CONFIG_FREERTOS_HZ=1000");
 static catscan_state_t state;
 static SemaphoreHandle_t state_lock;
 static QueueHandle_t csv_queue;
@@ -47,7 +48,7 @@ static void csv_writer(void *arg) {
 }
 static catscan_error_t read_error(esp_err_t e) {
     if (e==ESP_OK) return CS_OK;
-    if (e==ESP_ERR_TIMEOUT) return CS_CONVERSION_TIMEOUT;
+    if (e==ADS1115_ERR_CONVERSION_TIMEOUT) return CS_CONVERSION_TIMEOUT;
     if (e==ESP_ERR_INVALID_RESPONSE) return CS_CONFIG_MISMATCH;
     return CS_I2C_ERROR;
 }
