@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CatScan</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#e9edf1;background:#151c25;color-scheme:dark}body{max-width:760px;margin:auto;padding:24px}h1{color:#90ded0;margin-bottom:0}p{line-height:1.5}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}article,form{background:#222e3b;padding:18px;border-radius:12px}strong{display:block;font-size:1.8rem;margin:8px 0}label{display:block;margin:10px 0}select,button{padding:10px;margin:4px;border:1px solid #769398;border-radius:6px;font:inherit}button{background:#27675e}small{display:block;color:#b6c8d4}.bad{color:#ffb09b}#message{min-height:1.5em}
+</style>
+<h1>CatScan</h1><p>Four-channel analog bench logger · 0.1.0-dev</p>
+<p id="connection" role="status">Connecting…</p><p id="details">Waiting for state</p>
+<div class="cards" id="channels"></div>
+<p id="faults" class="bad"></p>
+<form id="config"><label>Scan interval <select id="interval"></select></label>
+<label>ADC full-scale range <select id="gain"></select></label>
+<button id="save">Apply</button><span id="message" role="status"></span></form>
+<p><small>Inputs must stay within GND–VDD (nominally 0–3.3 V), regardless of selected range. Channels are sampled sequentially. Settings reset on reboot.</small></p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+for(const ms of [100,250,500,1000,2000,5000,10000]) $('interval').add(new Option(`${ms} ms`,ms));
+[6.144,4.096,2.048,1.024,.512,.256].forEach((v,i)=>$('gain').add(new Option(`±${v.toFixed(3)} V`,i)));
+for(let i=0;i<4;i++){const a=document.createElement('article');a.innerHTML=`CH${i}<strong id="v${i}">—</strong><small id="r${i}">No sample</small>`;$('channels').append(a);}
+let initialized=false;
+async function request(url,options={}){const r=await fetch(url,{...options,signal:AbortSignal.timeout(3000),cache:'no-store'});if(!r.ok)throw Error(await r.text());return r.json();}
+async function refresh(){try{const s=await request('/api/state');$('connection').textContent=`Connected · ADC ${s.adc.present?'responding':'unavailable'}`;
+$('details').textContent=`Uptime ${(s.device.uptime_ms/1000).toFixed(1)} s · ${s.adc.sample_interval_ms} ms · ±${s.adc.full_scale_v.toFixed(3)} V · ${s.adc.data_rate_sps} SPS · age ${s.adc.last_sample_age_ms??'—'} ms`;
+for(const ch of s.channels){$(`v${ch.index}`).textContent=ch.valid?`${ch.voltage_v.toFixed(6)} V`:'—';$(`r${ch.index}`).textContent=ch.valid?`Raw ${ch.raw} · valid`:`Invalid · ${ch.error}`;}
+$('faults').textContent=[...s.faults,`CSV drops: ${s.csv_dropped_rows}`,`Scan overruns: ${s.scan_overruns}`].join(' · ');
+if(!initialized){$('interval').value=s.adc.sample_interval_ms;$('gain').value=s.adc.gain;initialized=true;}
+}catch(e){$('connection').textContent='Disconnected · measurements unavailable';for(let i=0;i<4;i++){$(`v${i}`).textContent='—';$(`r${i}`).textContent='Connection lost';}}finally{setTimeout(refresh,500);}}
+$('config').addEventListener('submit',async e=>{e.preventDefault();$('save').disabled=true;try{await request('/api/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({sample_interval_ms:Number($('interval').value),gain:Number($('gain').value)})});$('message').textContent='Applied';}catch(e){$('message').textContent=e.message;}finally{$('save').disabled=false;}});
+refresh();
+</script></html>

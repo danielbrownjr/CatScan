@@ -1,0 +1,5 @@
+menu "CatScan"
+config CATSCAN_AP_PASSWORD
+    string "Bench Wi-Fi AP password (8..63 characters)"
+    default "catscan-bench"
+endmenu
